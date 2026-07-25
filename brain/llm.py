@@ -15,50 +15,65 @@ class LLMProvider:
         api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=api_key)
         
-        # This is the persistent memory/persona we set up earlier
+        # Persistent memory/persona
         self.core_identity = "You are CRYOUS, an advanced Cognitive OS. You are helpful, concise, and highly capable."
-       
+        
+        # --- MEMORY ARCHITECTURE ---
+        self.memory = [] # The FIFO Queue
+        self.max_turns = 10 # Maximum conversation history before forgetting
+        
     def generate_chat_response(self, user_input: str) -> str:
         try:
             # 1. Set up the configuration with our tool menu
             config = types.GenerateContentConfig(
                 system_instruction=self.core_identity,
                 temperature=0.2,
-                tools=[read_local_file] # The AI can now see this tool
+                tools=[read_local_file] 
             )
             
-            # 2. Send the user's message to Gemini
+            # 2. Append the new user input to the memory queue
+            self.memory.append({"role": "user", "parts": [{"text": user_input}]})
+            
+            # 3. Send the entire memory array to Gemini
             response = self.client.models.generate_content(
                 model='gemini-3.5-flash', 
-                contents=user_input,
+                contents=self.memory,
                 config=config
             )
 
-            # 3. THE INTERCEPTOR (The If/Else Logic)
-            
-            # IF condition: Did the AI ask to use a tool?
+            # 4. THE INTERCEPTOR (Tool Logic)
             if response.function_calls:
-                # Get the details of the tool the AI wants to use
                 function_call = response.function_calls[0]
                 
-                # Check if it's our file reading tool
                 if function_call.name == "read_local_file":
-                    # Get the file name the AI wants to read (e.g., "main.py")
                     file_to_read = function_call.args["file_path"]
-                    
-                    # RUN OUR LOCAL PYTHON FUNCTION
                     file_content = read_local_file(file_to_read)
                     
-                    # Send this text back to Gemini so it can read it and answer the user
                     final_response = self.client.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model='gemini-3.5-flash',
                         contents=f"The user asked to read {file_to_read}. Here is the content: \n{file_content}\n Summarize or explain it to the user.",
                         config=types.GenerateContentConfig(system_instruction=self.core_identity)
                     )
+                    
+                    # Store the tool response in memory so it remembers the file read
+                    self.memory.append({"role": "model", "parts": [{"text": final_response.text}]})
+                    
+                    # Manage queue size even after a tool call
+                    while len(self.memory) > (self.max_turns * 2):
+                        self.memory.pop(0)
+                        
                     return final_response.text
 
-            # ELSE condition: It's just a normal text response
+            # 5. Standard Text Response
             elif response.text:
+                # Append the AI's response to memory
+                self.memory.append({"role": "model", "parts": [{"text": response.text}]})
+                
+                # 6. QUEUE MANAGEMENT (Enforcing the mathematical limit)
+                # Multiply by 2 because one full turn = 1 user message + 1 model message
+                while len(self.memory) > (self.max_turns * 2):
+                    self.memory.pop(0) 
+                    
                 return response.text
                 
             else:
