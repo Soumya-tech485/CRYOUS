@@ -1,39 +1,55 @@
-"""
-CRYOUS - Cognitive Operating System MVP
-Main application entry point.
-"""
-
-import sys
-from core.command_center import CommandCenter
-from core.logger import log_info
+from brain.llm import LLMProvider
+import os
 
 def main():
-    log_info("Booting CRYOUS Engine...")
+    print("Booting CRYOUS Cognitive Operating System...")
     
-    # Initialize the core facade
-    cc = CommandCenter()
+    # 1. Allocate memory and run __init__ (The Setup)
+    engine = LLMProvider()
     
-    log_info("System boot sequence complete. Entering live execution loop.")
-    print("\n==================================================")
-    print("CRYOUS v1.0 Core Active. Type 'exit' to shutdown.")
-    print("==================================================\n")
-    
+    print("System Online. Type 'exit' or 'quit' to terminate.")
+    print("-" * 50)
+
+    # 2. The Infinite Execution Loop
     while True:
         try:
-            user_input = input("You: ")
-            if user_input.strip().lower() == 'exit':
-                log_info("Shutdown command received. Exiting execution loop.")
-                break
-                
-            # Route the phrase through the system architecture
-            system_response = cc.execute_command(user_input)
-            print(f"\nCRYOUS: {system_response}\n")
+            # Grab user input
+            user_input = input("\nUSER > ")
+
             
+            
+            # Prevent sending empty strings to the API
+            if not user_input.strip():
+                continue
+
+            # 1. Deterministic System Commands (The Interceptor)
+            if user_input.startswith('/'):
+                command = user_input.lower()
+                
+                if command in ['/exit', '/quit']:
+                    print("\nInitiating shutdown sequence. Goodbye.")
+                    break
+                
+                elif command == '/clear':
+                    # Clears the terminal 
+                    os.system('cls' if os.name == 'nt' else 'clear')
+                    continue 
+                
+                else:
+                    print(f"[SYSTEM] Unrecognized command: '{command}'")
+                    continue
+
+            # 4. Dereference the pointer and call the method (The Action)
+            response = engine.generate_chat_response(user_input)
+            
+            print(f"CRYOUS > {response}")
+
         except KeyboardInterrupt:
-            # Handle Ctrl+C cleanly without ugly terminal tracebacks
-            print("\n")
-            log_info("System forced to terminate via keyboard interrupt.")
-            sys.exit(0)
+            # Handles the user pressing Ctrl+C safely
+            print("\n\nForce quit detected. Shutting down...")
+            break
+        except Exception as e:
+            print(f"\n[SYSTEM ERROR]: {e}")
 
 if __name__ == "__main__":
     main()

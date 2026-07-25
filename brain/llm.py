@@ -17,7 +17,7 @@ class LLMProvider:
         
         # This is the persistent memory/persona we set up earlier
         self.core_identity = "You are CRYOUS, an advanced Cognitive OS. You are helpful, concise, and highly capable."
-
+       
     def generate_chat_response(self, user_input: str) -> str:
         try:
             # 1. Set up the configuration with our tool menu
