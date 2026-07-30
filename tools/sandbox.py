@@ -1,21 +1,24 @@
 import os
 from dotenv import load_dotenv
-from typing import Dict, Any
+from typing import Dict, Any, List
 from e2b_code_interpreter import Sandbox
 
-# Load environment variables
 load_dotenv()
 
-def run_python_code(code_str: str, timeout_sec: int = 60) -> Dict[str, Any]:
-    """
-    Executes Python code securely in an isolated E2B cloud sandbox.
-    """
+def run_python_code(code_str: str, deps: List[str] = None, timeout_sec: int = 60) -> Dict[str, Any]:
+    """Executes Python code securely in an isolated E2B cloud sandbox and handles dynamic dependencies."""
     cleaned_code = code_str.replace("```python", "").replace("```", "").strip()
     
     try:
-        # Explicitly pass the API key to the Sandbox creation
         api_key = os.getenv("E2B_API_KEY")
-        with Sandbox.create(api_key=api_key) as sandbox: 
+        with Sandbox.create(api_key=api_key) as sandbox:
+            
+            # Auto-install tracked dependencies into the new ephemeral sandbox
+            if deps:
+                for dep in set(deps):
+                    print(f"--> [Sandbox] Injecting dependency: pip install {dep}")
+                    sandbox.commands.run(f"pip install {dep}", timeout=120)
+            
             execution = sandbox.run_code(cleaned_code, timeout=timeout_sec) 
             
             if execution.error: 
@@ -51,9 +54,7 @@ def run_python_code(code_str: str, timeout_sec: int = 60) -> Dict[str, Any]:
         }
 
 def run_c_code(code_str: str, timeout_sec: int = 60) -> Dict[str, Any]:
-    """
-    Compiles and executes C code securely in the E2B sandbox.
-    """
+    """Compiles and executes C code securely in the E2B sandbox."""
     cleaned_code = code_str.replace("```c", "").replace("```", "").strip()
     
     try:
@@ -90,16 +91,3 @@ def run_c_code(code_str: str, timeout_sec: int = 60) -> Dict[str, Any]:
             "stderr": f"SYSTEM/E2B ERROR: {str(e)}",
             "exit_code": -1
         }
-
-if __name__ == "__main__":
-    # Debug: Check if Python actually sees the key
-    current_key = os.getenv("E2B_API_KEY")
-    if current_key:
-        print(f"DEBUG: API Key found! It starts with: {current_key[:8]}...")
-    else:
-        print("DEBUG: API Key is STILL missing. The .env file is not being read correctly.")
-
-    # Test execution
-    test_code = "print('E2B Sandbox environment active. Output test success.')"
-    res = run_python_code(test_code)
-    print("Sandbox Test Result:", res)

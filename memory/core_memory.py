@@ -1,78 +1,46 @@
 import json
 import os
 from collections import deque
-from typing import Dict, Any, List
+from typing import Dict
 
 class MemoryManager:
-    def __init__(self, workspace_dir: str = "data/workspace"):
-        self.ledger_file = os.path.join(workspace_dir, "reflexion_ledger.json")
-        os.makedirs(workspace_dir, exist_ok=True)
-        
-        # --- TIER 3: The Anchor (Permanent Rules) ---
-        self.reflexion_ledger = self._load_json(self.ledger_file, default=[])
-        
-        # --- TIER 2: The Dynamic Thread (Strict 3-Step Window) ---
-        # deque automatically drops the oldest item when maxlen is exceeded
-        self.action_window = deque(maxlen=3)
-        
-        # --- TIER 1: The Exact State (Now) ---
-        self.current_state = {
-            "objective": "",
-            "current_error": None
-        }
+    def __init__(self, max_history=3, ledger_path="reflexion_ledger.json"):
+        self.max_history = max_history
+        self.ledger_path = ledger_path
+        self.action_history = deque(maxlen=self.max_history)
+        self.current_state = {"objective": "", "error": ""}
+        self.reflexion_ledger = self._load_ledger()
 
-    def _load_json(self, path: str, default: Any) -> Any:
-        if os.path.exists(path):
-            try:
-                with open(path, 'r') as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                return default
-        return default
+    def _load_ledger(self) -> list:
+        if os.path.exists(self.ledger_path):
+            with open(self.ledger_path, 'r') as f:
+                return json.load(f)
+        return []
 
-    def _save_json(self, path: str, data: Any):
-        with open(path, 'w') as f:
-            json.dump(data, f, indent=4)
-
-    # --- STATE UPDATES (Fixing the old append issue) ---
-
-    def log_action(self, action_desc: str, result_desc: str):
-        """Pushes a new action into the 3-step window. Oldest is destroyed."""
-        self.action_window.append({
-            "action": action_desc,
-            "result": result_desc
-        })
+    def save_to_ledger(self, lesson: str):
+        if lesson not in self.reflexion_ledger:
+            self.reflexion_ledger.append(lesson)
+            with open(self.ledger_path, 'w') as f:
+                json.dump(self.reflexion_ledger, f, indent=4)
 
     def set_current_state(self, objective: str = None, error: str = None):
-        """Strictly overwrites the current environment state."""
-        if objective:
+        if objective is not None:
             self.current_state["objective"] = objective
-        if error is not None:  # Allow clearing the error with empty string
-            self.current_state["current_error"] = error
+        if error is not None:
+            self.current_state["error"] = error
 
-    def add_reflexion_rule(self, rule: str):
-        """Saves a hard lesson permanently to the ledger."""
-        if rule not in self.reflexion_ledger:
-            self.reflexion_ledger.append(rule)
-            self._save_json(self.ledger_file, self.reflexion_ledger)
-
-    # --- PAYLOAD GENERATION ---
+    def log_action(self, action_desc: str, result_desc: str):
+        self.action_history.append({"action": action_desc, "result": result_desc})
 
     def build_dynamic_payload(self) -> str:
-        """
-        Constructs the ultra-lightweight prompt for the LLM. 
-        This replaces sending the entire chat history.
-        """
-        payload = f"OBJECTIVE: {self.current_state['objective']}\n\n"
+        payload = f"CURRENT OBJECTIVE:\n{self.current_state['objective']}\n\n"
         
-        payload += "RECENT ACTIONS (Sliding Window):\n"
-        if not self.action_window:
-            payload += "  - No previous actions in current window.\n"
-        else:
-            for i, step in enumerate(self.action_window, start=1):
-                payload += f"  - t-{len(self.action_window) - i + 1}: [Action: {step['action']} | Result: {step['result']}]\n"
+        if self.action_history:
+            payload += "RECENT ACTIONS (Last 3 Steps):\n"
+            for idx, entry in enumerate(self.action_history, 1):
+                payload += f"Step {idx}: {entry['action']} -> {entry['result']}\n"
         
-        if self.current_state["current_error"]:
-            payload += f"\nCURRENT ERROR/OUTPUT:\n{self.current_state['current_error']}\n"
+        if self.current_state["error"]:
+            payload += f"\nACTIVE ERROR STATE:\n{self.current_state['error']}\n"
             
         return payload
