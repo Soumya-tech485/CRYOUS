@@ -1,3 +1,12 @@
+from config.env import (
+    VOSK_MODEL_PATH, 
+    WAKE_WORD_TRIGGERS, 
+    AUDIO_SAMPLE_RATE, 
+    AUDIO_CHUNK_SIZE
+)
+
+# Your Vosk daemon setup follows...
+
 import os
 import json
 import time

@@ -1,4 +1,4 @@
-from tools.file_ops import write_local_file, read_local_file
+from tools.read_file import write_local_file, read_local_file
 
 # Step 1: Tell the system to write an encrypted file
 print("Step 1: Saving the secret file...")

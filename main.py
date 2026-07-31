@@ -1,109 +1,143 @@
 import os
 import sys
 import threading
-import queue
-from controller import MainController
-from voice.wake_word import WakeWordDetector
-from brain.llm import LLMProvider
+import time
 
-# ==================== CONFIGURATION ====================
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "your_groq_api_key_here")
-VOSK_MODEL_PATH = "model"
-# =======================================================
+# ==================== NEW ARCHITECTURE IMPORTS ====================
+from core.system_boot import add_cryous_to_startup
+from ui.ghost_interface import GhostUI
+from engine.groq_router import GroqEngine
 
-# 1. Thread-safe Queue for inter-thread communication
-action_queue = queue.Queue()
+# Assuming these are updated to thread-safe versions from our earlier steps
+from voice.speaker import Speaker
+from voice.listener import Listener
+# ==================================================================
 
-def voice_daemon(controller, wake_detector):
-    """
-    Background daemon function running on a separate thread.
-    Continuously listens for the wake word and handles active voice sessions.
-    """
-    print("\n[Voice Daemon] Online. Listening for 'Cryous'...")
-    while True:
+class CryousOS:
+    def __init__(self):
+        print("=" * 50)
+        print(" Booting CRYOUS Autonomous Operating System...")
+        print("=" * 50)
+        
+        # 1. Register for Windows Startup (Silent Boot)
+        add_cryous_to_startup()
+
+        # 2. Initialize UI, AI Routing Engine, and Audio Subsystems
         try:
-            # 1. Block and listen for wake word 
-            if wake_detector.listen_for_wake_word():
-                
-                # 2. Briefly notify the main UI thread that a voice session is active
-                action_queue.put("[SYSTEM: VOICE SESSION INITIATED]")
-                
-                # 3. Hand control over to the active voice pipeline
-                controller.run_active_session()
-                
-                # 4. Notify UI thread that session has ended
-                action_queue.put("[SYSTEM: VOICE SESSION TERMINATED]")
-
+            self.ui = GhostUI()
+            self.engine = GroqEngine()
+            self.speaker = Speaker()
+            self.listener = Listener()
         except Exception as e:
-            print(f"\n[VOICE DAEMON ERROR]: {e}")
-            print("[System] Attempting recovery and returning to background mode...")
+            print(f"[CRITICAL ERROR] Failed to initialize core subsystems: {e}")
+            sys.exit(1)
 
-def boot_system():
-    print("=" * 50)
-    print(" Booting CRYOUS Cognitive Operating System...")
-    print("=" * 50)
+        self.is_running = True
 
-    if not os.path.exists(VOSK_MODEL_PATH):
-        print(f"[ERROR] Vosk model directory not found at: '{VOSK_MODEL_PATH}'")
-        print("Please ensure your local Vosk model is placed inside the 'model/' folder.")
-        sys.exit(1)
+    def boot_sequence(self):
+        """Executes startup splash animation and voice greeting without blocking."""
+        # Start System Tray in a background thread to keep it alive
+        self.ui.start_tray()
 
-    # 1. Initialize core system components
-    controller = MainController(groq_api_key=GROQ_API_KEY, vosk_model_path=VOSK_MODEL_PATH)
-    wake_detector = WakeWordDetector(model_path=VOSK_MODEL_PATH)
-    engine = LLMProvider()
+        # Play the hologram boot animation (Auto-destroys after 3s)
+        self.ui.play_boot_animation()
 
-    # 2. Launch the Voice Daemon on an independent background thread
-    voice_thread = threading.Thread(
-        target=voice_daemon, 
-        args=(controller, wake_detector),
-        daemon=True # Daemon threads exit automatically when the main program closes
-    )
-    voice_thread.start()
+        # Silent background greeting
+        self.speaker.speak("Hello Boss. CRYOUS is online.")
 
-    print("\n[System] All modules loaded successfully. Ready.")
-    print("System Online. Type 'exit' or 'quit' to terminate.")
-    print("-" * 50)
-
-    # 3. The Main Thread (Terminal Chat Interface)
-    while True:
-        try:
-            # Process any pending notifications from the background voice thread
-            while not action_queue.empty():
-                message = action_queue.get()
-                print(f"\n{message}")
-
-            # Grab user input (this normally blocks, but voice_daemon runs independently)
-            user_input = input("\nUSER > ")
-
-            if not user_input.strip():
-                continue
-
-            # Deterministic System Commands
-            if user_input.startswith('/'):
-                command = user_input.lower()
+    def voice_daemon(self):
+        """
+        Background daemon function running on a separate thread.
+        Continuously listens for the wake word 'cryous' and handles active voice sessions.
+        """
+        print("\n[Voice Daemon] Online. Passive listener active...")
+        
+        while self.is_running:
+            try:
+                # 1. Continuous passive capture (non-blocking to system)
+                audio_text = self.listener.listen_passive()
                 
-                if command in ['/exit', '/quit']:
-                    print("\nInitiating shutdown sequence. Goodbye.")
-                    sys.exit(0)
-                
-                elif command == '/clear':
-                    os.system('cls' if os.name == 'nt' else 'clear')
-                    continue 
-                
-                else:
-                    print(f"[SYSTEM] Unrecognized command: '{command}'")
+                if not audio_text:
                     continue
 
-            # Generate and print the LLM chat response
-            response = engine.generate_chat_response(user_input)
-            print(f"CRYOUS > {response}")
+                # 2. Check for the wake word
+                if "cryous" in audio_text.lower():
+                    print("\n[SYSTEM: VOICE SESSION INITIATED]")
+                    
+                    # Acknowledge the user
+                    self.speaker.speak("Yes boss, do you need any help?")
 
-        except KeyboardInterrupt:
-            print("\n\n[System] Force shutdown detected. Terminating CRYOUS OS...")
-            sys.exit(0)
-        except Exception as e:
-            print(f"\n[MAIN SYSTEM ERROR]: {e}")
+                    # Active listen for the specific user command
+                    command = self.listener.listen_active()
+
+                    if command:
+                        print(f"[User Input] Captured: '{command}'")
+                        
+                        # VITAL FIX: Fire off the brain in a separate thread so the ears don't go deaf.
+                        threading.Thread(
+                            target=self._process_command, 
+                            args=(command,), 
+                            daemon=True
+                        ).start()
+                    else:
+                        print("[System] No speech detected after wake word.")
+                    
+                    print("[SYSTEM: VOICE DAEMON RETURNED TO PASSIVE STANDBY]\n")
+
+            except Exception as e:
+                print(f"\n[VOICE DAEMON ERROR]: {e}")
+                print("[System] Attempting recovery and returning to passive mode...")
+                time.sleep(1)
+
+    def _process_command(self, command: str):
+        """
+        Routes the recognized command through the Groq lanes.
+        Runs entirely in an isolated thread to maintain OS responsiveness.
+        """
+        command_lower = command.lower()
+
+        # Route based on explicit keywords
+        if "agent" in command_lower or "use tools" in command_lower or "search" in command_lower or "screen" in command_lower:
+            self.speaker.speak("Engaging autonomous tools, boss.")
+            response = self.engine.process_agent_lane(command)
+            
+        elif "deep research" in command_lower or "slow lane" in command_lower:
+            self.speaker.speak("Initiating deep research protocol.")
+            response = self.engine.process_slow_lane(command)
+            
+        else:
+            # Default to Fast-Lane for zero-latency conversational responses
+            response = self.engine.process_fast_lane(command)
+
+        # Notify audio completion immediately
+        self.speaker.speak("Boss, the given work is done.")
+
+        # Push to UI. (Ensure GhostUI's show_transparent_output handles thread-safety internally 
+        # using .after() if it relies on CustomTkinter/Tkinter mainloop)
+        self.ui.show_transparent_output(response)
+
+    def start(self):
+        """Ignites the OS logic."""
+        # 1. Run visuals & greeting
+        self.boot_sequence()
+
+        # 2. Launch the Voice Daemon on an independent background thread
+        voice_thread = threading.Thread(target=self.voice_daemon, daemon=True)
+        voice_thread.start()
+
+        print("\n[System] All modules loaded successfully. Ready.")
+        print("[System] CRYOUS is running silently in the taskbar.")
+        print("-" * 50)
+
 
 if __name__ == "__main__":
-    boot_system()
+    app = CryousOS()
+    app.start()
+
+    # 3. GUI Main Thread Takeover
+    # The UI root mainloop replaces the while/sleep loop.
+    try:
+        app.ui.root.mainloop()
+    except KeyboardInterrupt:
+        print("\n\n[System] Force shutdown detected. Terminating CRYOUS OS...")
+        sys.exit(0)
