@@ -1,1 +1,0 @@
-print('Sandbox environment active. Output test success.')

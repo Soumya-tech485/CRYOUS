@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CRYOUS — Command Deck</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14L16 30 4 23V9z' fill='none' stroke='%2341e8ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2341e8ff'/%3E%3C/svg%3E"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body data-state="off">
+
+<div class="bg" aria-hidden="true">
+  <div class="grid"></div><div class="glow g1"></div><div class="glow g2"></div><div class="scan"></div>
+</div>
+
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 32 32"><path d="M16 2 28 9v14L16 30 4 23V9z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="4" fill="currentColor"/></svg>
+    <span class="wordmark">CRYOUS</span><span class="ver">v1.0</span>
+  </div>
+  <div class="pill"><i></i><span id="pillText">OFFLINE</span></div>
+  <div class="spacer"></div>
+  <div class="mono clock" id="clock">--:--:--</div>
+  <button class="pbtn off" id="powerBtn" title="Voice engine on/off">⏻</button>
+</header>
+
+<main class="deck">
+  <aside class="col">
+    <section class="panel orbpanel">
+      <div class="orb">
+        <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+        <div class="core"></div>
+        <div class="wave"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="orblabel mono" id="orbLabel">OFFLINE</div>
+      <div class="btnrow">
+        <button id="micBtn" class="hbtn on">MIC ON</button>
+        <button id="sleepBtn" class="hbtn">SLEEP 10M</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3 class="ptitle">System Vitals</h3>
+      <div class="meter"><div class="mrow"><span>CPU</span><span class="mono" id="cpuVal">–</span></div><div class="bar"><i id="cpuBar"></i></div></div>
+      <div class="meter"><div class="mrow"><span>RAM</span><span class="mono" id="ramVal">–</span></div><div class="bar"><i id="ramBar"></i></div></div>
+      <div class="meter"><div class="mrow"><span>Token Budget</span><span class="mono" id="tokVal">–</span></div><div class="bar amber"><i id="tokBar"></i></div></div>
+      <div class="chips" id="provChips"></div>
+    </section>
+
+    <section class="panel">
+      <h3 class="ptitle">Quick Ops</h3>
+      <div class="quick" id="quick"></div>
+    </section>
+  </aside>
+
+  <section class="panel chatpanel">
+    <div class="chathead"><span class="ptitle">Neural Link</span><span class="mono dim" id="linkStat">connecting…</span></div>
+    <div class="feed" id="feed"></div>
+    <div class="typing" id="typing" hidden><i></i><i></i><i></i></div>
+    <form id="composer" autocomplete="off">
+      <input id="input" placeholder='Type a command — or just say "Cryous"' maxlength="600"/>
+      <button type="submit" class="send">SEND ▸</button>
+    </form>
+  </section>
+
+  <aside class="col">
+    <section class="panel grow">
+      <h3 class="ptitle">Agent Activity</h3>
+      <ul class="activity" id="activity"></ul>
+    </section>
+    <section class="panel">
+      <h3 class="ptitle">Output <button class="mini" id="copyOut">copy</button></h3>
+      <pre class="detail" id="detail">Awaiting first task…</pre>
+    </section>
+  </aside>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
